@@ -187,9 +187,9 @@ def google_auth():
         if not user:
             # Register new user via Google
             cursor = conn.execute(
-                'INSERT INTO users (username, email, google_id) VALUES (?, ?, ?)',
-                (username, email, google_id)
-            )
+    'INSERT INTO users (username, email, google_id, total_quizzes, total_correct) VALUES (?, ?, ?, 0, 0)',
+    (username, email, google_id)
+)
             user_id = cursor.lastrowid
             is_admin = False
         else:
