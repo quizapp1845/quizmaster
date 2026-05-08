@@ -11,15 +11,22 @@ import requests
 from datetime import datetime
 from dotenv import load_dotenv
 import models
+from flask_session import Session
 
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change')
+
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'supersecretkey')
+
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
-Session(app)
+app.config['SESSION_USE_SIGNER'] = True
 
+# Testing ke liye False rakho
+app.config['SESSION_COOKIE_SECURE'] = False
+
+Session(app)
 # Initialize OAuth
 oauth = OAuth(app)
 google = oauth.register(
