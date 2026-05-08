@@ -1,60 +1,42 @@
-{% extends "base.html" %} {% block content %}
+{% extends "base.html" %}
+{% block content %}
 <div class="fade-in-up">
-  <h1 class="text-4xl font-bold mb-8">Dashboard, {{ user.username }}! 👋</h1>
-  <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-    <div class="stat-card">
-      <div class="stat-number">{{ user.total_quizzes }}</div>
-      <div>Quizzes Taken</div>
+    <h1 class="text-4xl font-bold mb-8">Dashboard, {{ user.username }}! 🎯</h1>
+    
+    {% set total_quizzes = user.total_quizzes|default(0) %}
+    {% set total_correct = user.total_correct|default(0) %}
+    {% set accuracy = (total_correct / (total_quizzes * 5) * 100) if total_quizzes > 0 else 0 %}
+    
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="stat-card"><div class="stat-number">{{ total_quizzes }}</div><div>Quizzes Taken</div></div>
+        <div class="stat-card"><div class="stat-number">{{ total_correct }}</div><div>Correct Answers</div></div>
+        <div class="stat-card"><div class="stat-number">{{ "%.1f"|format(accuracy) }}%</div><div>Accuracy</div></div>
+        <div class="stat-card"><div class="stat-number">{{ topic_performance|length }}</div><div>Topics Mastered</div></div>
     </div>
-    <div class="stat-card">
-      <div class="stat-number">{{ user.total_correct }}</div>
-      <div>Correct Answers</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-number">
-        {{ "%.1f"|format((user.total_correct / (user.total_quizzes * 5) * 100)
-        if user.total_quizzes > 0 else 0) }}%
-      </div>
-      <div>Accuracy</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-number">{{ topic_performance|length }}</div>
-      <div>Topics Mastered</div>
-    </div>
-  </div>
-
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-    <div class="glass-card p-6">
-      <h3 class="text-xl font-bold mb-4">Topic Performance</h3>
-      {% for tp in topic_performance %}
-      <div class="mb-3">
-        <div class="flex justify-between">
-          <span>{{ tp.topic }}</span><span>{{ tp.avg_score }}%</span>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="glass-card p-6">
+            <h3 class="text-xl font-bold mb-4">Topic Performance</h3>
+            {% for tp in topic_performance %}
+            <div class="mb-3">
+                <div class="flex justify-between"><span>{{ tp.topic }}</span><span>{{ tp.avg_score }}%</span></div>
+                <div class="progress-bar-custom"><div class="progress-fill" style="width: {{ tp.avg_score }}%"></div></div>
+            </div>
+            {% endfor %}
         </div>
-        <div class="progress-bar-custom">
-          <div class="progress-fill" style="width: {{ tp.avg_score }}%"></div>
+        <div class="glass-card p-6">
+            <h3 class="text-xl font-bold mb-4">Recent Attempts</h3>
+            {% for attempt in recent_attempts %}
+            <div class="flex justify-between items-center p-2 border-b">
+                <div><span class="topic-badge topic-{{ attempt.topic|lower|replace(' ', '-') }}">{{ attempt.topic }}</span></div>
+                <div>{{ attempt.score }}/{{ attempt.total_questions }}</div>
+                <div>{{ attempt.timestamp[:10] }}</div>
+            </div>
+            {% else %}
+            <p class="text-gray-500 text-center py-4">No attempts yet. Take your first quiz!</p>
+            {% endfor %}
         </div>
-      </div>
-      {% endfor %}
     </div>
-    <div class="glass-card p-6">
-      <h3 class="text-xl font-bold mb-4">Recent Attempts</h3>
-      {% for attempt in recent_attempts %}
-      <div class="flex justify-between items-center p-2 border-b">
-        <div>
-          <span
-            class="topic-badge topic-{{ attempt.topic|lower|replace(' ', '-') }}"
-            >{{ attempt.topic }}</span
-          >
-        </div>
-        <div>{{ attempt.score }}/{{ attempt.total_questions }}</div>
-        <div>{{ attempt.timestamp[:10] }}</div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-  <div class="text-center mt-8">
-    <a href="/quiz" class="btn-primary">Take New Quiz →</a>
-  </div>
+    <div class="text-center mt-8"><a href="/quiz" class="btn-primary">Take New Quiz →</a></div>
 </div>
 {% endblock %}
