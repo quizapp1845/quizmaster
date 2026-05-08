@@ -4,4 +4,4 @@ authlib==1.2.1
 requests==2.31.0
 werkzeug==2.3.7
 python-dotenv==1.0.0
-git branch -M main
+gunicorn==21.2.0
