@@ -1,47 +1,102 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}QuizMaster{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="https://kit.fontawesome.com/your-kit.js" crossorigin="anonymous"></script>
-</head>
-<body>
-    <nav class="navbar">
-        <div class="container mx-auto flex justify-between items-center">
-            <a href="/" class="navbar-brand text-2xl font-bold">🎯 QuizMaster</a>
-            <div class="space-x-4">
-                {% if session.user_id %}
-                    <a href="/dashboard" class="nav-link">Dashboard</a>
-                    <a href="/leaderboard" class="nav-link">Leaderboard</a>
-                    <a href="/quiz" class="nav-link">Take Quiz</a>
-                    <a href="/profile" class="nav-link">Profile</a>
-                    <a href="/logout" class="nav-link text-red-500">Logout</a>
-                {% else %}
-                    <a href="/login" class="nav-link">Login</a>
-                    <a href="/register" class="nav-link">Register</a>
-                {% endif %}
-            </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <title>{% block title %}QuizMaster Pro{% endblock %}</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+  </head>
+  <body>
+    <!-- Modern Responsive Navbar -->
+    <nav class="bg-white/90 backdrop-blur-md shadow-lg sticky top-0 z-50">
+      <div
+        class="container mx-auto px-4 py-3 flex justify-between items-center"
+      >
+        <!-- Logo / Brand -->
+        <a
+          href="/"
+          class="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent"
+        >
+          🎯 QuizMaster
+        </a>
+
+        <!-- Desktop Menu (hidden on mobile) -->
+        <div class="hidden md:flex space-x-6 items-center">
+          {% if session.user_id %}
+          <a href="/dashboard" class="nav-link">Dashboard</a>
+          <a href="/quiz" class="nav-link">Take Quiz</a>
+          <a href="/leaderboard" class="nav-link">Leaderboard</a>
+          <a href="/profile" class="nav-link">Profile</a>
+          <a href="/logout" class="nav-link text-red-500">Logout</a>
+          {% else %}
+          <a href="/login" class="nav-link">Login</a>
+          <a href="/register" class="nav-link">Register</a>
+          {% endif %}
         </div>
+
+        <!-- Mobile Hamburger Button -->
+        <button
+          id="menu-btn"
+          class="md:hidden text-gray-700 focus:outline-none"
+        >
+          <i class="fas fa-bars text-2xl"></i>
+        </button>
+      </div>
+
+      <!-- Mobile Dropdown Menu (hidden by default) -->
+      <div
+        id="mobile-menu"
+        class="md:hidden hidden bg-white/95 backdrop-blur-md border-t"
+      >
+        <div class="flex flex-col space-y-3 px-4 py-4">
+          {% if session.user_id %}
+          <a href="/dashboard" class="nav-link py-2">📊 Dashboard</a>
+          <a href="/quiz" class="nav-link py-2">📝 Take Quiz</a>
+          <a href="/leaderboard" class="nav-link py-2">🏆 Leaderboard</a>
+          <a href="/profile" class="nav-link py-2">👤 Profile</a>
+          <a href="/logout" class="nav-link text-red-500 py-2">🚪 Logout</a>
+          {% else %}
+          <a href="/login" class="nav-link py-2">🔐 Login</a>
+          <a href="/register" class="nav-link py-2">📝 Register</a>
+          {% endif %}
+        </div>
+      </div>
     </nav>
 
     <main class="container mx-auto px-4 py-8">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="fixed top-20 right-4 z-50 p-4 rounded-lg shadow-lg fade-in-up 
-                                {% if category == 'success' %}bg-green-500{% elif category == 'danger' %}bg-red-500{% else %}bg-blue-500{% endif %} text-white">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        
-        {% block content %}{% endblock %}
+      {% with messages = get_flashed_messages(with_categories=true) %} {% if
+      messages %} {% for category, message in messages %}
+      <div
+        class="fixed top-20 right-4 z-50 p-4 rounded-lg shadow-lg fade-in-up {% if category == 'success' %}bg-green-500{% elif category == 'danger' %}bg-red-500{% else %}bg-blue-500{% endif %} text-white"
+      >
+        {{ message }}
+      </div>
+      {% endfor %} {% endif %} {% endwith %} {% block content %}{% endblock %}
     </main>
 
+    <!-- JavaScript for mobile menu toggle -->
+    <script>
+      const btn = document.getElementById("menu-btn");
+      const mobileMenu = document.getElementById("mobile-menu");
+      btn.addEventListener("click", () => {
+        mobileMenu.classList.toggle("hidden");
+      });
+    </script>
+
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-</body>
+  </body>
 </html>
