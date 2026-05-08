@@ -157,43 +157,66 @@ def google_login():
 
 @app.route('/google-auth')
 def google_auth():
-    token = google.authorize_access_token()
+    try:
+        # Get the access token from Google
+        token = google.authorize_access_token()
+        
+        # Method 1: Try to get user info directly from token (newer Authlib versions)
+        user_info = token.get('userinfo')
+        
+        # Method 2: If not present, fetch manually using access token
+        if not user_info:
+            import requests
+            response = requests.get(
+                'https://www.googleapis.com/oauth2/v3/userinfo',
+                headers={'Authorization': f'Bearer {token["access_token"]}'}
+            )
+            if response.status_code != 200:
+                flash('Failed to fetch user info from Google', 'danger')
+                return redirect(url_for('login'))
+            user_info = response.json()
+        
+        email = user_info.get('email')
+        if not email:
+            flash('No email provided by Google', 'danger')
+            return redirect(url_for('login'))
+        
+        username = user_info.get('name', email.split('@')[0])
+        google_id = user_info.get('sub')
+        
+        conn = models.get_db()
+        user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        
+        if not user:
+            # Create new user
+            cursor = conn.execute(
+                'INSERT INTO users (username, email, google_id) VALUES (?, ?, ?)',
+                (username, email, google_id)
+            )
+            user_id = cursor.lastrowid
+            is_admin = False
+        else:
+            user_id = user['id']
+            is_admin = bool(user['is_admin'])
+            # If user exists but google_id not set (e.g., registered via email), update it
+            if not user['google_id']:
+                conn.execute('UPDATE users SET google_id = ? WHERE id = ?', (google_id, user_id))
+                conn.commit()
+        
+        conn.close()
+        
+        # Set session variables
+        session['user_id'] = user_id
+        session['username'] = username
+        session['is_admin'] = is_admin
+        
+        flash('Google login successful!', 'success')
+        return redirect(url_for('dashboard'))
     
-    # Fetch userinfo from Google
-    resp = requests.get(
-        'https://openidconnect.googleapis.com/v1/userinfo',
-        headers={'Authorization': f'Bearer {token["access_token"]}'}
-    )
-    user_info = resp.json()
-    
-    email = user_info['email']
-    username = user_info.get('name', email.split('@')[0])
-    google_id = user_info['sub']
-    
-    conn = models.get_db()
-    user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-    
-    if not user:
-        cursor = conn.execute(
-            'INSERT INTO users (username, email, google_id) VALUES (?, ?, ?)',
-            (username, email, google_id)
-        )
-        user_id = cursor.lastrowid
-        is_admin = False
-    else:
-        user_id = user['id']
-        is_admin = bool(user['is_admin'])
-        if not user['google_id']:
-            conn.execute('UPDATE users SET google_id = ? WHERE id = ?', (google_id, user_id))
-            conn.commit()
-    
-    conn.close()
-    
-    session['user_id'] = user_id
-    session['username'] = username
-    session['is_admin'] = is_admin
-    flash('Google login successful!', 'success')
-    return redirect(url_for('dashboard'))
+    except Exception as e:
+        print(f"Google auth error: {e}")
+        flash(f'Login failed: {str(e)}', 'danger')
+        return redirect(url_for('login'))
 
 @app.route('/logout')
 def logout():
