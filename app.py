@@ -18,13 +18,14 @@ load_dotenv()
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'supersecretkey')
-
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
-
-# Testing ke liye False rakho
-app.config['SESSION_COOKIE_SECURE'] = False
+# Production (Render) pe HTTPS hai to secure cookie chahiye
+if os.environ.get('RENDER'):   # Render set karta hai yeh env var
+    app.config['SESSION_COOKIE_SECURE'] = True
+else:
+    app.config['SESSION_COOKIE_SECURE'] = False
 
 Session(app)
 # Initialize OAuth
@@ -158,24 +159,19 @@ def google_login():
 @app.route('/google-auth')
 def google_auth():
     try:
-        # Get token from Google
         token = google.authorize_access_token()
-        
-        # Fetch user info using the access token
         response = requests.get(
             'https://www.googleapis.com/oauth2/v2/userinfo',
             headers={'Authorization': f'Bearer {token["access_token"]}'}
         )
-        
         if response.status_code != 200:
             flash('Unable to fetch user data from Google', 'danger')
             return redirect(url_for('login'))
         
         user_data = response.json()
-        
         email = user_data.get('email')
         if not email:
-            flash('No email provided by Google', 'danger')
+            flash('No email provided', 'danger')
             return redirect(url_for('login'))
         
         username = user_data.get('name', email.split('@')[0])
@@ -185,21 +181,19 @@ def google_auth():
         user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
         
         if not user:
-            # Register new user via Google
+            # 🔥 FIX: Insert with default 0 values for total_quizzes and total_correct
             cursor = conn.execute(
-    'INSERT INTO users (username, email, google_id, total_quizzes, total_correct) VALUES (?, ?, ?, 0, 0)',
-    (username, email, google_id)
-)
+                'INSERT INTO users (username, email, google_id, total_quizzes, total_correct) VALUES (?, ?, ?, 0, 0)',
+                (username, email, google_id)
+            )
             user_id = cursor.lastrowid
             is_admin = False
         else:
             user_id = user['id']
             is_admin = bool(user['is_admin'])
-            # If Google ID not linked, link it now
             if not user['google_id']:
                 conn.execute('UPDATE users SET google_id = ? WHERE id = ?', (google_id, user_id))
                 conn.commit()
-        
         conn.close()
         
         session['user_id'] = user_id
@@ -211,7 +205,7 @@ def google_auth():
     
     except Exception as e:
         print(f"Google OAuth error: {e}")
-        flash('Something went wrong with Google login. Please try again.', 'danger')
+        flash('Something went wrong with Google login', 'danger')
         return redirect(url_for('login'))
 
 @app.route('/logout')
