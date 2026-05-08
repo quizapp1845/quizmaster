@@ -2,12 +2,22 @@ import sqlite3
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+import os
 
-DB_PATH = 'database/quiz.db'
+DB_PATH = os.path.join('database', 'quiz.db')
+os.makedirs('database', exist_ok=True)
+
+def get_db():
+    """Get database connection with WAL mode and timeout"""
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    return conn
 
 def init_db():
     """Initialize database with all tables and sample data"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     cursor = conn.cursor()
     
     # Users table with is_admin column
@@ -61,6 +71,7 @@ def init_db():
     cursor.execute("SELECT COUNT(*) FROM questions")
     if cursor.fetchone()[0] == 0:
         insert_sample_questions(cursor)
+        conn.commit()
     
     # Insert admin user if not exists
     admin_email = "admin@quizmaster.com"
@@ -68,8 +79,8 @@ def init_db():
     cursor.execute("SELECT id FROM users WHERE email = ?", (admin_email,))
     if not cursor.fetchone():
         cursor.execute('''
-            INSERT INTO users (username, email, password_hash, is_admin)
-            VALUES (?, ?, ?, 1)
+            INSERT INTO users (username, email, password_hash, is_admin, total_quizzes, total_correct)
+            VALUES (?, ?, ?, 1, 0, 0)
         ''', ("Admin", admin_email, admin_pass_hash))
         conn.commit()
     
@@ -132,9 +143,3 @@ def insert_sample_questions(cursor):
             INSERT INTO questions (topic, question_text, option1, option2, option3, option4, correct_option, difficulty)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', q)
-
-def get_db():
-    """Get database connection"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn

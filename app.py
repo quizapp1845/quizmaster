@@ -1,17 +1,13 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 from flask_session import Session
-from authlib.integrations.flask_client import OAuth
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import os
-import random
 import json
 import sqlite3
-import requests
 from datetime import datetime
 from dotenv import load_dotenv
 import models
-from flask_session import Session
 
 load_dotenv()
 
@@ -21,26 +17,17 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'supersecretkey')
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
-# Production (Render) pe HTTPS hai to secure cookie chahiye
-if os.environ.get('RENDER'):   # Render set karta hai yeh env var
+if os.environ.get('RENDER'):
     app.config['SESSION_COOKIE_SECURE'] = True
 else:
     app.config['SESSION_COOKIE_SECURE'] = False
 
 Session(app)
-# Initialize OAuth
-oauth = OAuth(app)
-google = oauth.register(
-    name='google',
-    client_id=os.getenv('GOOGLE_CLIENT_ID'),
-    client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={'scope': 'openid email profile'},
-)
 
 # Initialize database
 models.init_db()
 
+# ------------------- Helper Functions -------------------
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -90,8 +77,7 @@ def update_user_stats(user_id):
     conn.commit()
     conn.close()
 
-# ==================== AUTH ROUTES ====================
-
+# ------------------- Auth Routes -------------------
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -131,26 +117,26 @@ def register():
         
         hashed_password = generate_password_hash(password)
         
+        conn = models.get_db()
         try:
-            conn = models.get_db()
             conn.execute(
-                'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+                'INSERT INTO users (username, email, password_hash, total_quizzes, total_correct) VALUES (?, ?, ?, 0, 0)',
                 (username, email, hashed_password)
             )
             conn.commit()
             user_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
-            conn.close()
-            
+            flash('Registration successful!', 'success')
             session['user_id'] = user_id
             session['username'] = username
             session['is_admin'] = False
-            flash('Registration successful!', 'success')
             return redirect(url_for('dashboard'))
         except sqlite3.IntegrityError:
             flash('Username or email already exists', 'danger')
+            return redirect(url_for('register'))
+        finally:
+            conn.close()
     
     return render_template('register.html')
-
 
 @app.route('/logout')
 def logout():
@@ -158,8 +144,7 @@ def logout():
     flash('Logged out successfully', 'info')
     return redirect(url_for('index'))
 
-# ==================== MAIN ROUTES ====================
-
+# ------------------- Main Routes -------------------
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -251,8 +236,7 @@ def history():
 def quiz():
     return render_template('quiz.html')
 
-# ==================== QUIZ API ROUTES ====================
-
+# ------------------- Quiz API Routes -------------------
 @app.route('/api/topics')
 def get_topics():
     conn = models.get_db()
@@ -324,12 +308,14 @@ def submit_answer():
         total = len(quiz_data['answers'])
         
         conn = models.get_db()
-        conn.execute('''
-            INSERT INTO quiz_attempts (user_id, topic, score, total_questions, answers_json)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (session['user_id'], quiz_data['topic'], score, total, json.dumps(quiz_data['answers'])))
-        conn.commit()
-        conn.close()
+        try:
+            conn.execute('''
+                INSERT INTO quiz_attempts (user_id, topic, score, total_questions, answers_json)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (session['user_id'], quiz_data['topic'], score, total, json.dumps(quiz_data['answers'])))
+            conn.commit()
+        finally:
+            conn.close()
         
         update_user_stats(session['user_id'])
         session.pop('current_quiz', None)
@@ -349,8 +335,7 @@ def submit_answer():
         'topic': quiz_data['topic']
     })
 
-# ==================== ADMIN ROUTES ====================
-
+# ------------------- Admin Routes -------------------
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
@@ -398,9 +383,8 @@ def admin_make_admin(user_id):
 def admin_questions():
     conn = models.get_db()
     questions = conn.execute('SELECT * FROM questions ORDER BY id DESC').fetchall()
-    topics = conn.execute('SELECT DISTINCT topic FROM questions').fetchall()
     conn.close()
-    return render_template('admin/questions.html', questions=questions, topics=topics)
+    return render_template('admin/questions.html', questions=questions)
 
 @app.route('/admin/question/add', methods=['GET', 'POST'])
 @admin_required
@@ -450,5 +434,11 @@ def admin_attempts():
     conn.close()
     return render_template('admin/attempts.html', attempts=attempts)
 
+# ------------------- Teardown -------------------
+@app.teardown_appcontext
+def close_db(error):
+    # SQLite connections are closed per route, this is just safety
+    pass
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, threaded=False)
