@@ -160,33 +160,26 @@ def google_login():
 def google_auth():
     try:
         token = google.authorize_access_token()
-        response = requests.get(
+        resp = requests.get(
             'https://www.googleapis.com/oauth2/v2/userinfo',
             headers={'Authorization': f'Bearer {token["access_token"]}'}
         )
-        if response.status_code != 200:
-            flash('Unable to fetch user data from Google', 'danger')
+        if resp.status_code != 200:
+            flash('Unable to fetch user data', 'danger')
             return redirect(url_for('login'))
-        
-        user_data = response.json()
-        email = user_data.get('email')
-        if not email:
-            flash('No email provided', 'danger')
-            return redirect(url_for('login'))
-        
+        user_data = resp.json()
+        email = user_data['email']
         username = user_data.get('name', email.split('@')[0])
-        google_id = user_data.get('id')
-        
+        google_id = user_data['id']
         conn = models.get_db()
         user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-        
         if not user:
-            # 🔥 FIX: Insert with default 0 values for total_quizzes and total_correct
-            cursor = conn.execute(
+            # Ensure default values for totals
+            conn.execute(
                 'INSERT INTO users (username, email, google_id, total_quizzes, total_correct) VALUES (?, ?, ?, 0, 0)',
                 (username, email, google_id)
             )
-            user_id = cursor.lastrowid
+            user_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
             is_admin = False
         else:
             user_id = user['id']
@@ -195,19 +188,16 @@ def google_auth():
                 conn.execute('UPDATE users SET google_id = ? WHERE id = ?', (google_id, user_id))
                 conn.commit()
         conn.close()
-        
         session['user_id'] = user_id
         session['username'] = username
         session['is_admin'] = is_admin
-        
         flash('Google login successful!', 'success')
         return redirect(url_for('dashboard'))
-    
     except Exception as e:
-        print(f"Google OAuth error: {e}")
-        flash('Something went wrong with Google login', 'danger')
+        print(f"Google error: {e}")
+        flash('Google login failed, please try email login', 'danger')
         return redirect(url_for('login'))
-
+    
 @app.route('/logout')
 def logout():
     session.clear()
