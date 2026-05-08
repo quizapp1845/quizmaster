@@ -2,12 +2,12 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from flask_session import Session
 from authlib.integrations.flask_client import OAuth
 from werkzeug.security import generate_password_hash, check_password_hash
-from authlib.common.security import generate_token
 from functools import wraps
 import os
-import sqlite3
 import random
 import json
+import sqlite3
+import requests
 from datetime import datetime
 from dotenv import load_dotenv
 import models
@@ -34,7 +34,6 @@ google = oauth.register(
 models.init_db()
 
 def login_required(f):
-    """Decorator to require login for routes"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
@@ -43,15 +42,30 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Please login first', 'warning')
+            return redirect(url_for('login'))
+        
+        conn = models.get_db()
+        user = conn.execute('SELECT is_admin FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+        conn.close()
+        
+        if not user or not user['is_admin']:
+            flash('Admin access required', 'danger')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 def get_user(user_id):
-    """Get user by ID"""
     conn = models.get_db()
     user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
     conn.close()
     return user
 
 def update_user_stats(user_id):
-    """Recalculate and update user statistics"""
     conn = models.get_db()
     attempts = conn.execute(
         'SELECT SUM(score) as total_correct, COUNT(*) as total_quizzes FROM quiz_attempts WHERE user_id = ?',
@@ -87,6 +101,7 @@ def login():
         if user and user['password_hash'] and check_password_hash(user['password_hash'], password):
             session['user_id'] = user['id']
             session['username'] = user['username']
+            session['is_admin'] = bool(user['is_admin'])
             flash('Login successful!', 'success')
             return redirect(url_for('dashboard'))
         else:
@@ -120,6 +135,7 @@ def register():
             
             session['user_id'] = user_id
             session['username'] = username
+            session['is_admin'] = False
             flash('Registration successful!', 'success')
             return redirect(url_for('dashboard'))
         except sqlite3.IntegrityError:
@@ -129,43 +145,49 @@ def register():
 
 @app.route('/google-login')
 def google_login():
-    nonce = generate_token()
-    session['nonce'] = nonce
     redirect_uri = url_for('google_auth', _external=True)
-    return google.authorize_redirect(redirect_uri, nonce=nonce)
+    return google.authorize_redirect(redirect_uri)
 
 @app.route('/google-auth')
 def google_auth():
     token = google.authorize_access_token()
-    nonce = session.pop('nonce', None)
-    user_info = google.parse_id_token(token, nonce=nonce)
-
+    
+    # Fetch userinfo from Google
+    resp = requests.get(
+        'https://openidconnect.googleapis.com/v1/userinfo',
+        headers={'Authorization': f'Bearer {token["access_token"]}'}
+    )
+    user_info = resp.json()
+    
     email = user_info['email']
     username = user_info.get('name', email.split('@')[0])
     google_id = user_info['sub']
-
+    
     conn = models.get_db()
     user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-
+    
     if not user:
         cursor = conn.execute(
             'INSERT INTO users (username, email, google_id) VALUES (?, ?, ?)',
             (username, email, google_id)
         )
-        conn.commit()
         user_id = cursor.lastrowid
+        is_admin = False
     else:
         user_id = user['id']
+        is_admin = bool(user['is_admin'])
         if not user['google_id']:
             conn.execute('UPDATE users SET google_id = ? WHERE id = ?', (google_id, user_id))
             conn.commit()
-
+    
     conn.close()
-
+    
     session['user_id'] = user_id
     session['username'] = username
+    session['is_admin'] = is_admin
     flash('Google login successful!', 'success')
     return redirect(url_for('dashboard'))
+
 @app.route('/logout')
 def logout():
     session.clear()
@@ -180,13 +202,11 @@ def dashboard():
     user = get_user(session['user_id'])
     conn = models.get_db()
     
-    # Get recent attempts
     recent_attempts = conn.execute(
         'SELECT * FROM quiz_attempts WHERE user_id = ? ORDER BY timestamp DESC LIMIT 5',
         (session['user_id'],)
     ).fetchall()
     
-    # Get topic-wise performance
     topics = ['Theory of Computation', 'Advance Java', 'Python', 'AI']
     topic_performance = []
     for topic in topics:
@@ -201,7 +221,6 @@ def dashboard():
         })
     
     conn.close()
-    
     return render_template('dashboard.html', user=user, recent_attempts=recent_attempts, topic_performance=topic_performance)
 
 @app.route('/profile', methods=['GET', 'POST'])
@@ -231,7 +250,6 @@ def profile():
 @app.route('/leaderboard')
 def leaderboard():
     conn = models.get_db()
-    # Get top 20 users by total correct answers
     leaders = conn.execute('''
         SELECT id, username, total_correct, total_quizzes,
                CASE WHEN total_quizzes > 0 THEN ROUND(total_correct * 100.0 / (total_quizzes * 5), 1) ELSE 0 END as avg_score
@@ -273,7 +291,6 @@ def quiz():
 
 @app.route('/api/topics')
 def get_topics():
-    """Get all available topics with question counts"""
     conn = models.get_db()
     topics = conn.execute('SELECT DISTINCT topic, COUNT(*) as count FROM questions GROUP BY topic').fetchall()
     conn.close()
@@ -282,30 +299,20 @@ def get_topics():
 @app.route('/api/quiz/start', methods=['POST'])
 @login_required
 def start_quiz():
-    """Start a new quiz session"""
     data = request.get_json()
     topic = data.get('topic')
-    num_questions = min(int(data.get('num_questions', 5)), 10)  # Max 10 questions
+    num_questions = min(int(data.get('num_questions', 5)), 10)
     
     conn = models.get_db()
-    
     if topic == 'all':
-        questions = conn.execute(
-            'SELECT * FROM questions ORDER BY RANDOM() LIMIT ?',
-            (num_questions,)
-        ).fetchall()
+        questions = conn.execute('SELECT * FROM questions ORDER BY RANDOM() LIMIT ?', (num_questions,)).fetchall()
     else:
-        questions = conn.execute(
-            'SELECT * FROM questions WHERE topic = ? ORDER BY RANDOM() LIMIT ?',
-            (topic, num_questions)
-        ).fetchall()
-    
+        questions = conn.execute('SELECT * FROM questions WHERE topic = ? ORDER BY RANDOM() LIMIT ?', (topic, num_questions)).fetchall()
     conn.close()
     
     if not questions:
         return jsonify({'error': 'No questions available'}), 400
     
-    # Store quiz session
     quiz_data = {
         'questions': [dict(q) for q in questions],
         'current_index': 0,
@@ -315,7 +322,6 @@ def start_quiz():
     }
     session['current_quiz'] = quiz_data
     
-    # Return first question
     first_q = quiz_data['questions'][0]
     return jsonify({
         'question_id': first_q['id'],
@@ -329,7 +335,6 @@ def start_quiz():
 @app.route('/api/quiz/answer', methods=['POST'])
 @login_required
 def submit_answer():
-    """Submit answer and get next question"""
     if 'current_quiz' not in session:
         return jsonify({'error': 'No active quiz'}), 400
     
@@ -341,7 +346,6 @@ def submit_answer():
     current_q = quiz_data['questions'][quiz_data['current_index']]
     is_correct = (selected_option == current_q['correct_option'])
     
-    # Store answer
     quiz_data['answers'].append({
         'question_id': current_q['id'],
         'selected': selected_option,
@@ -351,41 +355,23 @@ def submit_answer():
     
     quiz_data['current_index'] += 1
     
-    # Check if quiz is complete
     if quiz_data['current_index'] >= len(quiz_data['questions']):
-        # Calculate score
         score = sum(1 for a in quiz_data['answers'] if a['correct'])
         total = len(quiz_data['answers'])
         
-        # Save to database
         conn = models.get_db()
         conn.execute('''
             INSERT INTO quiz_attempts (user_id, topic, score, total_questions, answers_json)
             VALUES (?, ?, ?, ?, ?)
-        ''', (
-            session['user_id'],
-            quiz_data['topic'],
-            score,
-            total,
-            json.dumps(quiz_data['answers'])
-        ))
+        ''', (session['user_id'], quiz_data['topic'], score, total, json.dumps(quiz_data['answers'])))
         conn.commit()
         conn.close()
         
-        # Update user stats
         update_user_stats(session['user_id'])
-        
-        # Clear quiz session
         session.pop('current_quiz', None)
         
-        return jsonify({
-            'completed': True,
-            'score': score,
-            'total': total,
-            'percentage': round(score * 100 / total, 1)
-        })
+        return jsonify({'completed': True, 'score': score, 'total': total, 'percentage': round(score * 100 / total, 1)})
     
-    # Return next question
     next_q = quiz_data['questions'][quiz_data['current_index']]
     session['current_quiz'] = quiz_data
     
@@ -399,22 +385,106 @@ def submit_answer():
         'topic': quiz_data['topic']
     })
 
-@app.route('/api/quiz/stats')
-@login_required
-def quiz_stats():
-    """Get user's quiz statistics for analytics"""
+# ==================== ADMIN ROUTES ====================
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
     conn = models.get_db()
-    stats = conn.execute('''
-        SELECT 
-            COUNT(*) as total_quizzes,
-            SUM(score) as total_correct,
-            SUM(total_questions) as total_questions,
-            AVG(score * 100.0 / total_questions) as avg_percentage
-        FROM quiz_attempts WHERE user_id = ?
-    ''', (session['user_id'],)).fetchone()
-    
+    total_users = conn.execute('SELECT COUNT(*) as count FROM users').fetchone()['count']
+    total_quizzes = conn.execute('SELECT COUNT(*) as count FROM quiz_attempts').fetchone()['count']
+    total_questions = conn.execute('SELECT COUNT(*) as count FROM questions').fetchone()['count']
     conn.close()
-    return jsonify(dict(stats))
+    return render_template('admin/dashboard.html', total_users=total_users, total_quizzes=total_quizzes, total_questions=total_questions)
+
+@app.route('/admin/users')
+@admin_required
+def admin_users():
+    conn = models.get_db()
+    users = conn.execute('SELECT id, username, email, total_quizzes, total_correct, is_admin, created_at FROM users ORDER BY created_at DESC').fetchall()
+    conn.close()
+    return render_template('admin/users.html', users=users)
+
+@app.route('/admin/user/delete/<int:user_id>')
+@admin_required
+def admin_delete_user(user_id):
+    if user_id == session['user_id']:
+        flash('You cannot delete yourself', 'danger')
+        return redirect(url_for('admin_users'))
+    conn = models.get_db()
+    conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+    conn.execute('DELETE FROM quiz_attempts WHERE user_id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+    flash('User deleted successfully', 'success')
+    return redirect(url_for('admin_users'))
+
+@app.route('/admin/user/make_admin/<int:user_id>')
+@admin_required
+def admin_make_admin(user_id):
+    conn = models.get_db()
+    conn.execute('UPDATE users SET is_admin = 1 WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+    flash('User is now admin', 'success')
+    return redirect(url_for('admin_users'))
+
+@app.route('/admin/questions')
+@admin_required
+def admin_questions():
+    conn = models.get_db()
+    questions = conn.execute('SELECT * FROM questions ORDER BY id DESC').fetchall()
+    topics = conn.execute('SELECT DISTINCT topic FROM questions').fetchall()
+    conn.close()
+    return render_template('admin/questions.html', questions=questions, topics=topics)
+
+@app.route('/admin/question/add', methods=['GET', 'POST'])
+@admin_required
+def admin_add_question():
+    if request.method == 'POST':
+        topic = request.form['topic']
+        question_text = request.form['question_text']
+        option1 = request.form['option1']
+        option2 = request.form['option2']
+        option3 = request.form['option3']
+        option4 = request.form['option4']
+        correct_option = int(request.form['correct_option'])
+        difficulty = int(request.form['difficulty'])
+        
+        conn = models.get_db()
+        conn.execute('''
+            INSERT INTO questions (topic, question_text, option1, option2, option3, option4, correct_option, difficulty)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (topic, question_text, option1, option2, option3, option4, correct_option, difficulty))
+        conn.commit()
+        conn.close()
+        flash('Question added successfully', 'success')
+        return redirect(url_for('admin_questions'))
+    return render_template('admin/add_question.html')
+
+@app.route('/admin/question/delete/<int:qid>')
+@admin_required
+def admin_delete_question(qid):
+    conn = models.get_db()
+    conn.execute('DELETE FROM questions WHERE id = ?', (qid,))
+    conn.commit()
+    conn.close()
+    flash('Question deleted', 'success')
+    return redirect(url_for('admin_questions'))
+
+@app.route('/admin/attempts')
+@admin_required
+def admin_attempts():
+    conn = models.get_db()
+    attempts = conn.execute('''
+        SELECT qa.*, u.username 
+        FROM quiz_attempts qa 
+        JOIN users u ON qa.user_id = u.id 
+        ORDER BY qa.timestamp DESC 
+        LIMIT 50
+    ''').fetchall()
+    conn.close()
+    return render_template('admin/attempts.html', attempts=attempts)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

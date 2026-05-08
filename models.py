@@ -10,7 +10,7 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Users table
+    # Users table with is_admin column
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,7 +21,8 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             total_score INTEGER DEFAULT 0,
             total_quizzes INTEGER DEFAULT 0,
-            total_correct INTEGER DEFAULT 0
+            total_correct INTEGER DEFAULT 0,
+            is_admin INTEGER DEFAULT 0
         )
     ''')
     
@@ -60,6 +61,16 @@ def init_db():
     cursor.execute("SELECT COUNT(*) FROM questions")
     if cursor.fetchone()[0] == 0:
         insert_sample_questions(cursor)
+    
+    # Insert admin user if not exists
+    admin_email = "admin@quizmaster.com"
+    admin_pass_hash = generate_password_hash("admin123")
+    cursor.execute("SELECT id FROM users WHERE email = ?", (admin_email,))
+    if not cursor.fetchone():
+        cursor.execute('''
+            INSERT INTO users (username, email, password_hash, is_admin)
+            VALUES (?, ?, ?, 1)
+        ''', ("Admin", admin_email, admin_pass_hash))
         conn.commit()
     
     conn.close()
@@ -79,7 +90,7 @@ def insert_sample_questions(cursor):
         ("Theory of Computation", "A DFA can have how many transitions per state per input symbol?", "Exactly one", "Zero or more", "At most one", "Exactly two", 1, 1),
         ("Theory of Computation", "Which language is accepted by a Pushdown Automaton?", "Regular", "Context-free", "Context-sensitive", "Recursive", 2, 2),
         
-        # Advanced Java (10 questions)
+        # Advance Java (10 questions)
         ("Advance Java", "Which package contains the JDBC classes?", "java.jdbc", "javax.sql", "java.sql", "java.db", 3, 1),
         ("Advance Java", "What does JSP stand for?", "Java Server Pages", "Java Script Pages", "Java Servlet Pages", "Java System Pages", 1, 1),
         ("Advance Java", "Which method is used to start a thread in Java?", "start()", "run()", "init()", "begin()", 1, 1),
@@ -103,7 +114,7 @@ def insert_sample_questions(cursor):
         ("Python", "What is the output of 2**3?", "8", "6", "9", "5", 1, 1),
         ("Python", "Which framework is used for web development in Python?", "Django", "Spring", "Rails", "Laravel", 1, 1),
         
-        # Artificial Intelligence (10 questions)
+        # AI (10 questions)
         ("AI", "What does AI stand for?", "Artificial Intelligence", "Automated Intelligence", "Augmented Intelligence", "Algorithmic Intelligence", 1, 1),
         ("AI", "Which algorithm is used for supervised learning?", "Linear Regression", "K-means", "Apriori", "DBSCAN", 1, 2),
         ("AI", "What is a neural network inspired by?", "Human brain", "Computer circuits", "Genetic algorithms", "Fuzzy logic", 1, 1),

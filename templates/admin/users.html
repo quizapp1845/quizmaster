@@ -1,0 +1,49 @@
+{% extends "base.html" %} {% block content %}
+<div class="max-w-6xl mx-auto">
+  <h1 class="text-3xl font-bold mb-6">Manage Users</h1>
+  <div class="glass-card overflow-x-auto">
+    <table class="w-full">
+      <thead class="border-b">
+        <tr>
+          <th class="p-3">ID</th>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Quizzes</th>
+          <th>Correct</th>
+          <th>Admin</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr class="border-b">
+          <td class="p-3">{{ u.id }}</td>
+          <td>{{ u.username }}</td>
+          <td>{{ u.email }}</td>
+          <td>{{ u.total_quizzes }}</td>
+          <td>{{ u.total_correct }}</td>
+          <td>{% if u.is_admin %}✅{% else %}❌{% endif %}</td>
+          <td>
+            {% if not u.is_admin %}
+            <a
+              href="/admin/user/make_admin/{{ u.id }}"
+              class="text-green-600 mr-2"
+              >Make Admin</a
+            >
+            <a
+              href="/admin/user/delete/{{ u.id }}"
+              class="text-red-600"
+              onclick="return confirm('Delete user?');"
+              >Delete</a
+            >
+            {% else %}
+            <span class="text-gray-400">Super Admin</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

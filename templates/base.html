@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <title>{% block title %}QuizMaster Pro{% endblock %}</title>
+    <title>{% block title %}QuizMaster{% endblock %}</title>
     <link
       href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
       rel="stylesheet"
@@ -36,7 +36,9 @@
 
         <!-- Desktop Menu (hidden on mobile) -->
         <div class="hidden md:flex space-x-6 items-center">
-          {% if session.user_id %}
+          {% if session.user_id %} {% if session.is_admin %}
+          <a href="/admin" class="nav-link text-yellow-600">👑 Admin</a>
+          {% endif %}
           <a href="/dashboard" class="nav-link">Dashboard</a>
           <a href="/quiz" class="nav-link">Take Quiz</a>
           <a href="/leaderboard" class="nav-link">Leaderboard</a>
@@ -63,7 +65,9 @@
         class="md:hidden hidden bg-white/95 backdrop-blur-md border-t"
       >
         <div class="flex flex-col space-y-3 px-4 py-4">
-          {% if session.user_id %}
+          {% if session.user_id %} {% if session.is_admin %}
+          <a href="/admin" class="nav-link py-2">👑 Admin</a>
+          {% endif %}
           <a href="/dashboard" class="nav-link py-2">📊 Dashboard</a>
           <a href="/quiz" class="nav-link py-2">📝 Take Quiz</a>
           <a href="/leaderboard" class="nav-link py-2">🏆 Leaderboard</a>
@@ -81,7 +85,7 @@
       {% with messages = get_flashed_messages(with_categories=true) %} {% if
       messages %} {% for category, message in messages %}
       <div
-        class="fixed top-20 right-4 z-50 p-4 rounded-lg shadow-lg fade-in-up {% if category == 'success' %}bg-green-500{% elif category == 'danger' %}bg-red-500{% else %}bg-blue-500{% endif %} text-white"
+        class="fixed top-20 right-4 z-50 p-4 rounded-lg shadow-lg fade-in-up {% if category == 'success' %}bg-green-500 {% elif category == 'danger' %}bg-red-500 {% else %}bg-blue-500{% endif %} text-white"
       >
         {{ message }}
       </div>

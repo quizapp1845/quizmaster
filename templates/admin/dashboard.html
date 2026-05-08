@@ -1,0 +1,36 @@
+{% extends "base.html" %} {% block content %}
+<div class="max-w-6xl mx-auto">
+  <h1 class="text-3xl font-bold mb-6">Admin Dashboard</h1>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="stat-card">
+      <div class="stat-number">{{ total_users }}</div>
+      <div>Total Users</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">{{ total_quizzes }}</div>
+      <div>Total Quizzes Taken</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">{{ total_questions }}</div>
+      <div>Questions in DB</div>
+    </div>
+  </div>
+  <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+    <a
+      href="/admin/users"
+      class="glass-card p-6 text-center hover:scale-105 transition"
+      >👥 Manage Users</a
+    >
+    <a
+      href="/admin/questions"
+      class="glass-card p-6 text-center hover:scale-105 transition"
+      >📝 Manage Questions</a
+    >
+    <a
+      href="/admin/attempts"
+      class="glass-card p-6 text-center hover:scale-105 transition"
+      >📊 Quiz Attempts</a
+    >
+  </div>
+</div>
+{% endblock %}

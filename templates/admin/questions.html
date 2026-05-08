@@ -1,0 +1,41 @@
+{% extends "base.html" %} {% block content %}
+<div class="max-w-6xl mx-auto">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-3xl font-bold">Manage Questions</h1>
+    <a href="/admin/question/add" class="btn-primary">+ Add New Question</a>
+  </div>
+  <div class="glass-card overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="border-b">
+        <tr>
+          <th>ID</th>
+          <th>Topic</th>
+          <th>Question</th>
+          <th>Correct</th>
+          <th>Diff</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for q in questions %}
+        <tr class="border-b">
+          <td class="p-2">{{ q.id }}</td>
+          <td>{{ q.topic[:15] }}</td>
+          <td>{{ q.question_text[:50] }}...</td>
+          <td>{{ q.correct_option }}</td>
+          <td>{{ q.difficulty }}</td>
+          <td>
+            <a
+              href="/admin/question/delete/{{ q.id }}"
+              class="text-red-600"
+              onclick="return confirm('Delete?');"
+              >Delete</a
+            >
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
