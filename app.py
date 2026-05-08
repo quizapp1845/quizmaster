@@ -151,53 +151,7 @@ def register():
     
     return render_template('register.html')
 
-@app.route('/google-login')
-def google_login():
-    redirect_uri = url_for('google_auth', _external=True)
-    return google.authorize_redirect(redirect_uri)
 
-@app.route('/google-auth')
-def google_auth():
-    try:
-        token = google.authorize_access_token()
-        resp = requests.get(
-            'https://www.googleapis.com/oauth2/v2/userinfo',
-            headers={'Authorization': f'Bearer {token["access_token"]}'}
-        )
-        if resp.status_code != 200:
-            flash('Unable to fetch user data', 'danger')
-            return redirect(url_for('login'))
-        user_data = resp.json()
-        email = user_data['email']
-        username = user_data.get('name', email.split('@')[0])
-        google_id = user_data['id']
-        conn = models.get_db()
-        user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-        if not user:
-            # Ensure default values for totals
-            conn.execute(
-                'INSERT INTO users (username, email, google_id, total_quizzes, total_correct) VALUES (?, ?, ?, 0, 0)',
-                (username, email, google_id)
-            )
-            user_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
-            is_admin = False
-        else:
-            user_id = user['id']
-            is_admin = bool(user['is_admin'])
-            if not user['google_id']:
-                conn.execute('UPDATE users SET google_id = ? WHERE id = ?', (google_id, user_id))
-                conn.commit()
-        conn.close()
-        session['user_id'] = user_id
-        session['username'] = username
-        session['is_admin'] = is_admin
-        flash('Google login successful!', 'success')
-        return redirect(url_for('dashboard'))
-    except Exception as e:
-        print(f"Google error: {e}")
-        flash('Google login failed, please try email login', 'danger')
-        return redirect(url_for('login'))
-    
 @app.route('/logout')
 def logout():
     session.clear()
