@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <h1 class="text-4xl font-bold mb-8 text-center">🏆 Global Leaderboard</h1>
+    <div class="glass-card p-6">
+        {% for leader in leaders %}
+        <div class="leaderboard-item fade-in-up" style="animation-delay: {{ loop.index * 0.05 }}s">
+            <div class="rank-badge">#{{ loop.index }}</div>
+            <div class="flex-grow"><h3 class="font-bold">{{ leader.username }}</h3><p class="text-sm text-gray-600">Quizzes: {{ leader.total_quizzes }}</p></div>
+            <div class="text-right"><div class="stat-number text-2xl">{{ leader.total_correct }}</div><p class="text-sm">Total Correct</p></div>
+            <div class="ml-6 text-right"><div class="text-xl font-bold">{{ leader.avg_score }}%</div><p class="text-sm">Avg Score</p></div>
+        </div>
+        {% else %}<p class="text-center py-8">No leaderboard data yet. Take some quizzes!</p>{% endfor %}
+    </div>
+</div>
+{% endblock %}

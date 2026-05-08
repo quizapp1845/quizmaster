@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}QuizMaster - Master Your Knowledge{% endblock %}
+{% block content %}
+<div class="min-h-screen flex items-center justify-center">
+    <div class="text-center glass-card p-12 max-w-3xl fade-in-up">
+        <h1 class="text-5xl font-bold mb-6 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            Welcome to QuizMaster!
+        </h1>
+        <p class="text-xl text-gray-700 mb-8">Interactive quizzes, real-time leaderboards, and performance tracking</p>
+        <div class="space-x-4">
+            <a href="/register" class="btn-primary inline-block">Get Started Free</a>
+            <a href="/login" class="btn-outline-glass inline-block">Login</a>
+        </div>
+        <div class="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="text-center"><i class="fas fa-brain text-3xl text-purple-600"></i><p>AI</p></div>
+            <div class="text-center"><i class="fas fa-code text-3xl text-blue-600"></i><p>Java</p></div>
+            <div class="text-center"><i class="fab fa-python text-3xl text-green-600"></i><p>Python</p></div>
+            <div class="text-center"><i class="fas fa-microchip text-3xl text-red-600"></i><p>TOC</p></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

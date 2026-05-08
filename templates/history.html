@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <h1 class="text-3xl font-bold mb-6">Quiz History</h1>
+    <div class="mb-4 flex gap-4"><select id="topic-filter" class="form-control" onchange="filterHistory()"><option value="">All Topics</option>{% for t in topics %}<option value="{{ t }}" {% if t == current_filter %}selected{% endif %}>{{ t }}</option>{% endfor %}</select><input type="text" id="search-input" placeholder="Search..." class="form-control" onkeyup="searchHistory()"></div>
+    <div class="glass-card overflow-x-auto"><table class="w-full" id="history-table"><thead><tr class="border-b"><th class="p-3 text-left">Topic</th><th>Score</th><th>Date</th><th>Accuracy</th></tr></thead><tbody>{% for a in attempts %}<tr class="border-b hover:bg-gray-50"><td class="p-3"><span class="topic-badge topic-{{ a.topic|lower|replace(' ', '-') }}">{{ a.topic }}</span></td><td>{{ a.score }}/{{ a.total_questions }}</td><td>{{ a.timestamp[:16] }}</td><td>{{ "%.1f"|format(a.score * 100 / a.total_questions) }}%</td></tr>{% else %}<tr><td colspan="4" class="text-center p-8">No attempts found</td></tr>{% endfor %}</tbody></table></div>
+</div>
+{% endblock %}

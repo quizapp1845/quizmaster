@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div id="quiz-setup" class="glass-card p-8 fade-in-up text-center">
+        <h2 class="text-3xl font-bold mb-6">Choose Your Challenge</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="topic-card p-4 text-center cursor-pointer glass-card" data-topic="Theory of Computation"><i class="fas fa-microchip text-3xl mb-2"></i><h3>TOC</h3></div>
+            <div class="topic-card p-4 text-center cursor-pointer glass-card" data-topic="Advance Java"><i class="fas fa-coffee text-3xl mb-2"></i><h3>Java</h3></div>
+            <div class="topic-card p-4 text-center cursor-pointer glass-card" data-topic="Python"><i class="fab fa-python text-3xl mb-2"></i><h3>Python</h3></div>
+            <div class="topic-card p-4 text-center cursor-pointer glass-card" data-topic="AI"><i class="fas fa-brain text-3xl mb-2"></i><h3>AI</h3></div>
+        </div>
+        <label>Number of Questions: <select id="num-questions" class="form-control inline-block w-24"><option>5</option><option>10</option></select></label>
+    </div>
+    
+    <div id="quiz-area" style="display:none;">
+        <div class="quiz-container"><div class="flex justify-between mb-6"><span class="topic-badge" id="topic-badge"></span><div class="timer-circle" id="timer-circle"><span class="timer-text" id="timer">30</span></div></div>
+        <div class="progress-bar-custom mb-6"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+        <h3 class="question-text" id="question-text"></h3><div id="options-container" class="space-y-3 mb-6"></div>
+        <div class="text-center text-gray-500">Question <span id="current-q">1</span> of <span id="total-q">5</span></div></div>
+    </div>
+    <div id="quiz-results" style="display:none;"></div>
+</div>
+{% endblock %}

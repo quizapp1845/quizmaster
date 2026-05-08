@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}QuizMaster{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://kit.fontawesome.com/your-kit.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="/" class="navbar-brand text-2xl font-bold">🎯 QuizMaster</a>
+            <div class="space-x-4">
+                {% if session.user_id %}
+                    <a href="/dashboard" class="nav-link">Dashboard</a>
+                    <a href="/leaderboard" class="nav-link">Leaderboard</a>
+                    <a href="/quiz" class="nav-link">Take Quiz</a>
+                    <a href="/profile" class="nav-link">Profile</a>
+                    <a href="/logout" class="nav-link text-red-500">Logout</a>
+                {% else %}
+                    <a href="/login" class="nav-link">Login</a>
+                    <a href="/register" class="nav-link">Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto px-4 py-8">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="fixed top-20 right-4 z-50 p-4 rounded-lg shadow-lg fade-in-up 
+                                {% if category == 'success' %}bg-green-500{% elif category == 'danger' %}bg-red-500{% else %}bg-blue-500{% endif %} text-white">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
